@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,6 +23,17 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 
 export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignInPageInner />
+    </Suspense>
+  );
+}
+
+function SignInPageInner() {
+  const searchParams = useSearchParams();
+  const callbackError = searchParams.get("error");
+
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -59,6 +77,16 @@ export default function SignInPage() {
             Lion&apos;s Roar Dharma Center event planning
           </CardDescription>
         </CardHeader>
+
+        {callbackError ? (
+          <div className="px-6 pb-2">
+            <Alert variant="destructive">
+              <AlertCircle className="size-4" />
+              <AlertTitle>Sign-in failed</AlertTitle>
+              <AlertDescription>{callbackError}</AlertDescription>
+            </Alert>
+          </div>
+        ) : null}
 
         {sent ? (
           <CardContent className="space-y-3 text-center">
