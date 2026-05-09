@@ -213,3 +213,124 @@ export function getMissingForNextStage(event: EventRow): {
   const missing = next.rules.filter((r) => !r.isFilled(event));
   return { stage: next.stage, missing };
 }
+
+// -----------------------------------------------------------------------------
+// Stage-aware alerts (Phase 3): things that should be in the user's face as
+// they look at an event. Distinct from "completeness" because alerts are
+// time-sensitive and behavioural ("event is in 5 days but no publicity is
+// published") rather than stage-gate rules.
+// -----------------------------------------------------------------------------
+export type AlertSeverity = "info" | "warning" | "danger";
+
+export interface EventAlert {
+  id: string;
+  severity: AlertSeverity;
+  title: string;
+  description?: string;
+}
+
+function daysFromToday(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const target = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(target.getTime())) return null;
+  const now = new Date();
+  const today = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+  );
+  const ms = target.getTime() - today;
+  return Math.round(ms / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Generate a stage-aware list of alerts for an event. The UI renders these
+ * at the top of the event workspace.
+ *
+ * Rules (from the brief, plus a few obvious ones):
+ *  - in_promotion + start_date within 7 days + no published channels → danger
+ *  - in_promotion + start_date within 14 days + no started channels → warning
+ *  - planning + no start_date → info
+ *  - confirmed + no Rinpoche approval → warning
+ *  - active + start_date in the past + no published channels → warning
+ *  - any stage + start_date in the past + stage < complete → info nudge
+ */
+export function getEventAlerts(event: EventRow): EventAlert[] {
+  const alerts: EventAlert[] = [];
+  const days = daysFromToday(event.start_date);
+
+  const publicityValues = Object.values(event.publicity);
+  const anyStarted = publicityValues.some((c) => c.status !== "not_started");
+  const anyPublished = publicityValues.some((c) => c.status === "published");
+
+  if (event.stage === "in_promotion") {
+    if (days !== null && days >= 0 && days <= 7 && !anyPublished) {
+      alerts.push({
+        id: "promo-7-no-published",
+        severity: "danger",
+        title: `Event is in ${days} day${days === 1 ? "" : "s"} and nothing is published`,
+        description:
+          "Get at least one publicity channel published immediately — newsletter and Eventbrite are usually highest leverage.",
+      });
+    } else if (days !== null && days >= 0 && days <= 14 && !anyStarted) {
+      alerts.push({
+        id: "promo-14-no-started",
+        severity: "warning",
+        title: `Event is in ${days} day${days === 1 ? "" : "s"} and no publicity has started`,
+        description:
+          "Begin drafting publicity content for at least one channel.",
+      });
+    }
+  }
+
+  if (event.stage === "planning" && !event.start_date) {
+    alerts.push({
+      id: "planning-no-date",
+      severity: "info",
+      title: "No start date set",
+      description:
+        "Lock in at least a tentative date so promotional planning can begin.",
+    });
+  }
+
+  if (event.stage === "confirmed" && !event.approvals.rinpoche_approved) {
+    alerts.push({
+      id: "confirmed-no-approval",
+      severity: "warning",
+      title: "Confirmed without Rinpoche approval",
+      description:
+        "Get explicit Rinpoche approval recorded before promotion begins.",
+    });
+  }
+
+  if (
+    event.stage === "active" &&
+    days !== null &&
+    days < 0 &&
+    !anyPublished
+  ) {
+    alerts.push({
+      id: "active-past-no-published",
+      severity: "warning",
+      title: "Event has started or passed but nothing was published",
+      description:
+        "Verify the event happened as planned and update its publicity records.",
+    });
+  }
+
+  if (
+    event.stage !== "complete" &&
+    days !== null &&
+    days < -1 &&
+    event.stage !== "active"
+  ) {
+    alerts.push({
+      id: "past-not-complete",
+      severity: "info",
+      title: `Event date is ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} in the past`,
+      description: "Consider closing this event out by advancing it to Complete.",
+    });
+  }
+
+  return alerts;
+}

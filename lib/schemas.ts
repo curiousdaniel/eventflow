@@ -243,6 +243,165 @@ export const CHANNEL_COLORS: Record<ChannelKey, string> = {
   sms: "yellow",
 };
 
+/**
+ * Calendar channels are a *superset* of the publicity panel channels — they
+ * also include "social_media" because the promotional timeline emits that
+ * value for cross-platform social posts.
+ *
+ * Promotional items are loose-typed in the database (channel is a free-form
+ * text column), so the calendar UI normalises any unknown value into the
+ * "Other" bucket via getCalendarChannelMeta below.
+ */
+export const CALENDAR_CHANNEL_KEYS = [
+  "website",
+  "newsletter",
+  "eventbrite",
+  "facebook",
+  "social_media",
+  "meetup",
+  "sms",
+] as const;
+export type CalendarChannelKey = (typeof CALENDAR_CHANNEL_KEYS)[number];
+
+export const CALENDAR_CHANNEL_LABELS: Record<CalendarChannelKey, string> = {
+  website: "Website",
+  newsletter: "Newsletter",
+  eventbrite: "Eventbrite",
+  facebook: "Facebook",
+  social_media: "Social media",
+  meetup: "Meetup",
+  sms: "SMS",
+};
+
+/**
+ * Tailwind class triplet (background, border, text) per channel for use on
+ * calendar chips. Kept as concrete class names (not interpolated) so Tailwind
+ * picks them up at build time.
+ */
+export const CALENDAR_CHANNEL_CLASSES: Record<
+  CalendarChannelKey,
+  { chip: string; dot: string; label: string }
+> = {
+  website: {
+    chip: "bg-blue-100 border-blue-300 text-blue-900 dark:bg-blue-900/40 dark:border-blue-700 dark:text-blue-100",
+    dot: "bg-blue-500",
+    label: "text-blue-700 dark:text-blue-300",
+  },
+  newsletter: {
+    chip: "bg-green-100 border-green-300 text-green-900 dark:bg-green-900/40 dark:border-green-700 dark:text-green-100",
+    dot: "bg-green-500",
+    label: "text-green-700 dark:text-green-300",
+  },
+  eventbrite: {
+    chip: "bg-orange-100 border-orange-300 text-orange-900 dark:bg-orange-900/40 dark:border-orange-700 dark:text-orange-100",
+    dot: "bg-orange-500",
+    label: "text-orange-700 dark:text-orange-300",
+  },
+  facebook: {
+    chip: "bg-indigo-100 border-indigo-300 text-indigo-900 dark:bg-indigo-900/40 dark:border-indigo-700 dark:text-indigo-100",
+    dot: "bg-indigo-500",
+    label: "text-indigo-700 dark:text-indigo-300",
+  },
+  social_media: {
+    chip: "bg-purple-100 border-purple-300 text-purple-900 dark:bg-purple-900/40 dark:border-purple-700 dark:text-purple-100",
+    dot: "bg-purple-500",
+    label: "text-purple-700 dark:text-purple-300",
+  },
+  meetup: {
+    chip: "bg-red-100 border-red-300 text-red-900 dark:bg-red-900/40 dark:border-red-700 dark:text-red-100",
+    dot: "bg-red-500",
+    label: "text-red-700 dark:text-red-300",
+  },
+  sms: {
+    chip: "bg-yellow-100 border-yellow-300 text-yellow-900 dark:bg-yellow-900/40 dark:border-yellow-700 dark:text-yellow-100",
+    dot: "bg-yellow-500",
+    label: "text-yellow-700 dark:text-yellow-300",
+  },
+};
+
+const FALLBACK_CHANNEL_CLASSES = {
+  chip: "bg-muted border-border text-foreground",
+  dot: "bg-muted-foreground",
+  label: "text-muted-foreground",
+};
+
+export function getCalendarChannelMeta(channel: string): {
+  label: string;
+  classes: { chip: string; dot: string; label: string };
+} {
+  if ((CALENDAR_CHANNEL_KEYS as readonly string[]).includes(channel)) {
+    const key = channel as CalendarChannelKey;
+    return {
+      label: CALENDAR_CHANNEL_LABELS[key],
+      classes: CALENDAR_CHANNEL_CLASSES[key],
+    };
+  }
+  return {
+    label: channel.replace(/_/g, " "),
+    classes: FALLBACK_CHANNEL_CLASSES,
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Promotional item action_type — free-form in the DB, but we keep a known set
+// for the timeline generator + a label map for the drawer UI.
+// -----------------------------------------------------------------------------
+export const PROMO_ACTION_TYPES = [
+  "announce",
+  "listing_live",
+  "event_created",
+  "reminder",
+  "final_push",
+  "last_call",
+  "final_reminder",
+  "day_of",
+] as const;
+export type PromoActionType = (typeof PROMO_ACTION_TYPES)[number];
+
+export const PROMO_ACTION_LABELS: Record<PromoActionType, string> = {
+  announce: "Announce",
+  listing_live: "Listing live",
+  event_created: "Event created",
+  reminder: "Reminder",
+  final_push: "Final push",
+  last_call: "Last call",
+  final_reminder: "Final reminder",
+  day_of: "Day of",
+};
+
+export function getActionTypeLabel(action: string): string {
+  if ((PROMO_ACTION_TYPES as readonly string[]).includes(action)) {
+    return PROMO_ACTION_LABELS[action as PromoActionType];
+  }
+  return action.replace(/_/g, " ");
+}
+
+/**
+ * Matches the Postgres enum `promo_status` defined in migration 0001:
+ *   pending | drafted | sent
+ */
+export const PROMO_STATUSES = ["pending", "drafted", "sent"] as const;
+export type PromoStatus = (typeof PROMO_STATUSES)[number];
+export const PromoStatusEnum = z.enum(PROMO_STATUSES);
+
+export const PROMO_STATUS_LABELS: Record<PromoStatus, string> = {
+  pending: "Pending",
+  drafted: "Drafted",
+  sent: "Sent",
+};
+
+export const PromotionalItemRowSchema = z.object({
+  id: z.string().uuid(),
+  event_id: z.string().uuid(),
+  channel: z.string(),
+  action_type: z.string(),
+  target_date: z.string(),
+  status: PromoStatusEnum,
+  content: z.string().nullable(),
+  created_at: z.string(),
+});
+export type PromotionalItemRow = z.infer<typeof PromotionalItemRowSchema>;
+
 // -----------------------------------------------------------------------------
 // Seed-intake "event_data" block schema — emitted by Claude inside
 // <event_data>...</event_data> tags during the /events/new conversation.

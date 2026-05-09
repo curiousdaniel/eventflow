@@ -9,7 +9,9 @@ import {
 } from "@/components/ui/tabs";
 import { CompletenessBar } from "@/components/events/CompletenessBar";
 import { EditableTitle } from "@/components/events/EditableTitle";
+import { EventAlertsBanner } from "@/components/events/EventAlertsBanner";
 import { EventSidebar } from "@/components/claude/EventSidebar";
+import { GenerateScheduleButton } from "@/components/events/GenerateScheduleButton";
 import { HistoryTimeline } from "@/components/events/HistoryTimeline";
 import { PanelApprovals } from "@/components/events/PanelApprovals";
 import { PanelCore } from "@/components/events/PanelCore";
@@ -19,7 +21,7 @@ import { PanelPublicity } from "@/components/events/PanelPublicity";
 import { PanelVolunteers } from "@/components/events/PanelVolunteers";
 import { StageAdvanceButton } from "@/components/events/StageAdvanceButton";
 import { StageBadge } from "@/components/events/StageBadge";
-import { getEventCompleteness } from "@/lib/completeness";
+import { getEventAlerts, getEventCompleteness } from "@/lib/completeness";
 import { PANEL_KEYS, PANEL_LABELS, type EventRow } from "@/lib/schemas";
 import type { EventHistoryEntry, EventMessage } from "@/lib/events/queries";
 
@@ -48,6 +50,14 @@ export function EventWorkspace({
     [event],
   );
 
+  const alerts = useMemo(() => getEventAlerts(event), [event]);
+
+  const canGenerateSchedule =
+    !!event.start_date &&
+    (event.stage === "confirmed" ||
+      event.stage === "in_promotion" ||
+      event.stage === "active");
+
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr),320px]">
       <div className="flex min-w-0 flex-col gap-5">
@@ -56,8 +66,15 @@ export function EventWorkspace({
             <EditableTitle eventId={event.id} initialTitle={event.title} />
             <StageBadge stage={event.stage} />
           </div>
-          <StageAdvanceButton event={event} />
+          <div className="flex flex-wrap items-center gap-2">
+            {canGenerateSchedule ? (
+              <GenerateScheduleButton event={event} />
+            ) : null}
+            <StageAdvanceButton event={event} />
+          </div>
         </header>
+
+        <EventAlertsBanner alerts={alerts} />
 
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
