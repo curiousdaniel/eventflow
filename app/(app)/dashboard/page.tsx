@@ -8,13 +8,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { DashboardFilters } from "@/components/events/DashboardFilters";
+import { getRecentActivity } from "@/lib/dashboard/queries";
 import { listEvents } from "@/lib/events/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const events = await listEvents();
+  const [events, activity] = await Promise.all([
+    listEvents(),
+    getRecentActivity(10),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -48,7 +53,10 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       ) : (
-        <DashboardFilters events={events} />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <DashboardFilters events={events} />
+          <ActivityFeed entries={activity} />
+        </div>
       )}
     </div>
   );

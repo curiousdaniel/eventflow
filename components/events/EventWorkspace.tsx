@@ -22,6 +22,7 @@ import { PanelVolunteers } from "@/components/events/PanelVolunteers";
 import { StageAdvanceButton } from "@/components/events/StageAdvanceButton";
 import { StageBadge } from "@/components/events/StageBadge";
 import { getEventAlerts, getEventCompleteness } from "@/lib/completeness";
+import { formatRelative } from "@/lib/format";
 import { PANEL_KEYS, PANEL_LABELS, type EventRow } from "@/lib/schemas";
 import type { EventHistoryEntry, EventMessage } from "@/lib/events/queries";
 
@@ -58,6 +59,10 @@ export function EventWorkspace({
       event.stage === "in_promotion" ||
       event.stage === "active");
 
+  const lastEdit = history[0];
+  const lastEditedBy = lastEdit?.changed_by_name?.trim() || null;
+  const lastEditedAt = lastEdit?.created_at ?? event.updated_at;
+
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr),320px]">
       <div className="flex min-w-0 flex-col gap-5">
@@ -73,6 +78,16 @@ export function EventWorkspace({
             <StageAdvanceButton event={event} />
           </div>
         </header>
+
+        <p className="text-xs text-muted-foreground">
+          Last edited {formatRelative(lastEditedAt)}
+          {lastEditedBy ? (
+            <>
+              {" by "}
+              <span className="text-foreground">{lastEditedBy}</span>
+            </>
+          ) : null}
+        </p>
 
         <EventAlertsBanner alerts={alerts} />
 
